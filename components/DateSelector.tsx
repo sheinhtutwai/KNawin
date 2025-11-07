@@ -38,7 +38,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({ onGenerate, initialDate, on
         <input
           type="date"
           id="startDate"
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-900 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white"
           value={selectedDate}
           onChange={handleDateChange}
           required
