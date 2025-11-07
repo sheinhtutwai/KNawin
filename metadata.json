@@ -1,0 +1,5 @@
+{
+  "name": "ကိုးနဝင်း",
+  "description": "An application to generate a daily chanting schedule for the Ko Nawin (Nine Virtues of Buddha) practice. Users can select a start date, and if it's a Monday, a complete 81-day schedule is provided.",
+  "requestFramePermissions": []
+}
