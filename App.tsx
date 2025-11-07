@@ -5,8 +5,12 @@ import DateSelector from './components/DateSelector';
 import AlertMessage from './components/AlertMessage';
 import TodayView from './components/TodayView';
 import ScheduleView from './components/ScheduleView';
+import AuthForm from './components/AuthForm';
+import { useAuth } from './components/AuthContext';
+import { saveCompletedDays, loadCompletedDays, saveSelectedDate, loadSelectedDate } from './firestoreService';
 
 const App: React.FC = () => {
+  const { user, loading, logout } = useAuth();
   const [schedule, setSchedule] = useState<ScheduleItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(null);
@@ -14,28 +18,43 @@ const App: React.FC = () => {
   const [completedDays, setCompletedDays] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    try {
-      const storedCompleted = localStorage.getItem('koNawinCompletedDays');
-      if (storedCompleted) {
-        setCompletedDays(new Set(JSON.parse(storedCompleted)));
-      }
-    } catch (e) {
-      console.error("Failed to load completed days from localStorage", e);
-    }
-  }, []);
+    if (user) {
+      const fetchData = async () => {
+        const fetchedCompletedDays = await loadCompletedDays(user.uid);
+        setCompletedDays(fetchedCompletedDays);
 
-  const handleMarkAsComplete = useCallback((dateKey: string) => {
+        const fetchedSelectedDate = await loadSelectedDate(user.uid);
+        if (fetchedSelectedDate) {
+          const date = new Date(fetchedSelectedDate);
+          setStartDate(date);
+          // Automatically generate schedule if a saved date exists
+          if (date.getDay() === 1) { // Check if it's a Monday
+            generateSchedule(date);
+          } else {
+            setError('ကျေးဇူးပြု၍ တနင်္လာနေ့တွင် စတင်ပါ။');
+            setSchedule(null);
+          }
+        }
+      };
+      fetchData();
+    } else {
+      setCompletedDays(new Set()); // Clear completed days if logged out
+      setStartDate(null); // Clear selected date if logged out
+      setSchedule(null); // Clear schedule if logged out
+      setTodayItem(undefined);
+    }
+  }, [user]);
+
+  const handleMarkAsComplete = useCallback(async (dateKey: string) => {
+    if (!user) return; // Should not happen if UI is protected
+
     setCompletedDays(prev => {
       const newCompleted = new Set(prev);
       newCompleted.add(dateKey);
-      try {
-        localStorage.setItem('koNawinCompletedDays', JSON.stringify(Array.from(newCompleted)));
-      } catch (e) {
-        console.error("Failed to save completed days to localStorage", e);
-      }
+      saveCompletedDays(user.uid, newCompleted); // Save to Firestore
       return newCompleted;
     });
-  }, []);
+  }, [user]);
 
 
   const generateSchedule = useCallback((mondayDate: Date) => {
@@ -91,17 +110,37 @@ const App: React.FC = () => {
   }, []);
 
   const handleGenerate = useCallback((date: Date) => {
+    if (!user) return; // Prevent generating if not logged in
     setStartDate(date);
     setTodayItem(undefined); // Reset on new generation
-    // JS getDay() -> 0:Sun, 1:Mon, ..., 6:Sat
+    setError(null);
+
     if (date.getDay() !== 1) {
-      setError('ကျေးဇူးပြု၍ တနင်္လာနေ့တွင် စတင်ပါ။ ကိုးနဝင်းအောင်လမ်းကို တနင်္လာနေ့တွင် စတင်ရမည်ဖြစ်ပါသည်။');
+      setError('ကျေးဇူးပြု၍ တနင်္လာနေ့တွင် စတင်ပါ။');
       setSchedule(null);
+      saveSelectedDate(user.uid, null); // Clear saved date if invalid
     } else {
-      setError(null);
       generateSchedule(date);
+      saveSelectedDate(user.uid, date.toISOString().split('T')[0]); // Save valid date
     }
-  }, [generateSchedule]);
+  }, [generateSchedule, user]);
+
+  const handleClearDate = useCallback(() => {
+    if (!user) return;
+    setStartDate(null);
+    setSchedule(null);
+    setTodayItem(undefined);
+    setError(null);
+    saveSelectedDate(user.uid, null); // Clear saved date in Firestore
+  }, [user]);
+
+  if (loading) {
+    return <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 text-gray-100 p-4 sm:p-6 lg:p-8 flex items-center justify-center text-2xl">Loading...</div>;
+  }
+
+  if (!user) {
+    return <AuthForm />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 text-gray-100 p-4 sm:p-6 lg:p-8">
@@ -109,11 +148,16 @@ const App: React.FC = () => {
         <header className="text-center py-8">
             <h1 className="text-5xl sm:text-6xl font-bold text-amber-400 leading-relaxed">ကိုးနဝင်း</h1>
             <p className="text-base sm:text-lg text-gray-300 mt-6">ဘုရားဂုဏ်တော်ကိုးပါးဖြင့် ပုတီးစိပ်ရန် နေ့ရက်များ</p>
+            <button onClick={logout} className="mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded">Logout</button>
         </header>
 
         <main>
           <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-2xl p-6 max-w-2xl mx-auto">
-            <DateSelector onGenerate={handleGenerate} />
+            <DateSelector 
+              onGenerate={handleGenerate} 
+              initialDate={startDate}
+              onClear={handleClearDate}
+            />
             {error && <AlertMessage message={error} />}
           </div>
           
