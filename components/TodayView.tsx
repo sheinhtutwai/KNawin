@@ -6,10 +6,14 @@ interface TodayViewProps {
   item: ScheduleItem;
   isCompleted: boolean;
   onComplete: (dateKey: string) => void;
+  roundsCompleted: number;
+  onRoundIncrement: (dateKey: string) => void;
+  onRoundDecrement: (dateKey: string) => void;
 }
 
-const TodayView: React.FC<TodayViewProps> = ({ item, isCompleted, onComplete }) => {
+const TodayView: React.FC<TodayViewProps> = ({ item, isCompleted, onComplete, roundsCompleted, onRoundIncrement, onRoundDecrement }) => {
   const isVegetarianDay = item.dayNumber % 9 === 5;
+  const isTargetReached = roundsCompleted >= item.rounds;
 
   return (
     <div className="mt-8 max-w-2xl mx-auto">
@@ -51,6 +55,31 @@ const TodayView: React.FC<TodayViewProps> = ({ item, isCompleted, onComplete }) 
                     <div>
                         <p className="text-sm text-gray-400">စဉ်</p>
                         <p className="text-xl text-gray-300">{item.dayNumber}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-6 pb-6">
+                <div className="bg-gray-900/50 rounded-lg p-4 text-center">
+                    <p className="text-sm text-gray-400">တာလီ — ယနေ့ စိပ်ပြီးသော အပတ်</p>
+                    <p className="text-4xl font-bold text-amber-400 mt-2">{roundsCompleted} / {item.rounds} ပတ်</p>
+                    {isTargetReached && (
+                        <p className="text-green-300 font-semibold mt-2">ပြည့်ပြီ</p>
+                    )}
+                    <div className="flex gap-3 mt-4">
+                        <button
+                            onClick={() => onRoundIncrement(item.dateKey)}
+                            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105 duration-300 ease-in-out"
+                        >
+                            + ၁ ပတ်
+                        </button>
+                        <button
+                            onClick={() => onRoundDecrement(item.dateKey)}
+                            disabled={roundsCompleted <= 0}
+                            className="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105 duration-300 ease-in-out"
+                        >
+                            - ၁ ပတ်
+                        </button>
                     </div>
                 </div>
             </div>

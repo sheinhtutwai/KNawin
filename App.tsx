@@ -7,7 +7,7 @@ import TodayView from './components/TodayView';
 import ScheduleView from './components/ScheduleView';
 import AuthForm from './components/AuthForm';
 import { useAuth } from './components/AuthContext';
-import { saveCompletedDays, loadCompletedDays, saveSelectedDate, loadSelectedDate } from './firestoreService';
+import { saveCompletedDays, loadCompletedDays, saveSelectedDate, loadSelectedDate, saveRoundCounts, loadRoundCounts } from './firestoreService';
 
 const App: React.FC = () => {
   const { user, loading, logout } = useAuth();
@@ -16,12 +16,16 @@ const App: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [todayItem, setTodayItem] = useState<ScheduleItem | null | undefined>(undefined);
   const [completedDays, setCompletedDays] = useState<Set<string>>(new Set());
+  const [roundCounts, setRoundCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (user) {
       const fetchData = async () => {
         const fetchedCompletedDays = await loadCompletedDays(user.uid);
         setCompletedDays(fetchedCompletedDays);
+
+        const fetchedRoundCounts = await loadRoundCounts(user.uid);
+        setRoundCounts(fetchedRoundCounts);
 
         const fetchedSelectedDate = await loadSelectedDate(user.uid);
         if (fetchedSelectedDate) {
@@ -39,6 +43,7 @@ const App: React.FC = () => {
       fetchData();
     } else {
       setCompletedDays(new Set()); // Clear completed days if logged out
+      setRoundCounts({}); // Clear round counts if logged out
       setStartDate(null); // Clear selected date if logged out
       setSchedule(null); // Clear schedule if logged out
       setTodayItem(undefined);
@@ -49,10 +54,33 @@ const App: React.FC = () => {
     if (!user) return; // Should not happen if UI is protected
 
     setCompletedDays(prev => {
-      const newCompleted = new Set(prev);
+      const newCompleted = new Set<string>(prev);
       newCompleted.add(dateKey);
       saveCompletedDays(user.uid, newCompleted); // Save to Firestore
       return newCompleted;
+    });
+  }, [user]);
+
+
+  const handleRoundIncrement = useCallback((dateKey: string) => {
+    if (!user) return; // Should not happen if UI is protected
+
+    setRoundCounts(prev => {
+      const newCounts = { ...prev, [dateKey]: (prev[dateKey] ?? 0) + 1 };
+      saveRoundCounts(user.uid, newCounts); // Save to Firestore
+      return newCounts;
+    });
+  }, [user]);
+
+  const handleRoundDecrement = useCallback((dateKey: string) => {
+    if (!user) return; // Should not happen if UI is protected
+
+    setRoundCounts(prev => {
+      const current = prev[dateKey] ?? 0;
+      if (current <= 0) return prev; // Never go below 0
+      const newCounts = { ...prev, [dateKey]: current - 1 };
+      saveRoundCounts(user.uid, newCounts); // Save to Firestore
+      return newCounts;
     });
   }, [user]);
 
@@ -162,10 +190,13 @@ const App: React.FC = () => {
           </div>
           
           {todayItem && (
-            <TodayView 
-              item={todayItem} 
+            <TodayView
+              item={todayItem}
               isCompleted={completedDays.has(todayItem.dateKey)}
               onComplete={handleMarkAsComplete}
+              roundsCompleted={roundCounts[todayItem.dateKey] ?? 0}
+              onRoundIncrement={handleRoundIncrement}
+              onRoundDecrement={handleRoundDecrement}
             />
           )}
           {todayItem === null && schedule && (

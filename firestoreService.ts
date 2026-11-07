@@ -25,6 +25,26 @@ export const loadCompletedDays = async (userId: string): Promise<Set<string>> =>
   return new Set();
 };
 
+export const saveRoundCounts = async (userId: string, roundCounts: Record<string, number>) => {
+  if (!userId) return;
+  const userDocRef = getUserDocRef(userId);
+  await setDoc(userDocRef, { roundCounts }, { merge: true });
+};
+
+export const loadRoundCounts = async (userId: string): Promise<Record<string, number>> => {
+  if (!userId) return {};
+  const userDocRef = getUserDocRef(userId);
+  const docSnap = await getDoc(userDocRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    if (data && data.roundCounts && typeof data.roundCounts === 'object') {
+      return data.roundCounts as Record<string, number>;
+    }
+  }
+  return {};
+};
+
 export const saveSelectedDate = async (userId: string, date: string | null) => {
   if (!userId) return;
   const userDocRef = getUserDocRef(userId);
